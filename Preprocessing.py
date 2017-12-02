@@ -102,6 +102,7 @@ def organize_data():
             elif token[0][1] == 'VBP' or token[0][1] == 'VB':
                 x_verbs[-1][j] = word_idx.get(word)
 
+
     np.save("Adverbs.npy", x_avb)
     np.save("Nouns.npy", x_nouns)
     np.save("Adjs.npy", x_adj)
