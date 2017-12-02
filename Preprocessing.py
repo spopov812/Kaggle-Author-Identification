@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import nltk
 
-
 def organize_data():
 
     # loading data
@@ -54,8 +53,12 @@ def organize_data():
         for word in sentence.split():
             all_words.append(word)
 
+    word_set = set(all_words)
+
     # dictionary creation
-    word_idx = {w: i for w, i in enumerate(set(all_words))}
+    word_idx = {w: i + 1 for i, w in enumerate(word_set)}
+
+    # print(word_idx.values())
 
     print("\n\nThere are %d unique words in the dataset.\n\n" % len(word_idx.items()))
 
@@ -70,10 +73,10 @@ def organize_data():
             print(i, "/", len(x_data))
 
         # initializing sample with 0s for all words
-        x_verbs.append(np.zeros(len(sentence.split())))
-        x_adj.append(np.zeros(len(sentence.split())))
-        x_nouns.append(np.zeros(len(sentence.split())))
-        x_avb.append(np.zeros(len(sentence.split())))
+        x_verbs.append(np.zeros(75))
+        x_adj.append(np.zeros(75))
+        x_nouns.append(np.zeros(75))
+        x_avb.append(np.zeros(75))
 
         for j, word in enumerate(sentence.split()):
 
@@ -104,5 +107,6 @@ def organize_data():
     np.save("Adjs.npy", x_adj)
     np.save("Verbs.npy", x_verbs)
 
-def train_models():
-    print("no")
+    np.save("YTrain", y_final)
+
+    return len(word_idx.items())
