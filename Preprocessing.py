@@ -7,19 +7,25 @@ import nltk
 def organize_data():
 
     # loading data
-    raw_data = pd.read_csv("train.csv")
+    raw_train = pd.read_csv("train.csv")
+    raw_test = pd.read_csv("test.csv")
 
     # separating data
-    x_data = raw_data["text"]
-    y_data = raw_data["author"]
+    x_data = raw_train["text"]
+    y_data = raw_train["author"]
+
+    x_test = raw_test["text"]
+
+    x_data = x_data.tolist()
+    x_test = x_test.tolist()
 
     y_final = []
 
     # converting author names to a one-hot vector
     for author in y_data:
-        if author == "":
+        if author == "EAP":
             y_final.append([1, 0, 0])
-        elif author == "":
+        elif author == "HPL":
             y_final.append([0, 1, 0])
         else:
             y_final.append([0, 0, 1])
@@ -27,28 +33,33 @@ def organize_data():
     illegal_chars = ["\"", '.', ',', ':', ';', '?']
 
     # getting rid of punctuation
-    for i, sentence in enumerate(x_data):
+    for character in illegal_chars:
+        x_data = [s.replace(character, "") for s in x_data]
 
-        # print(type(sentence))
-        for char in illegal_chars:
-            x_data[i] = sentence.replace(char, "")
+    for character in illegal_chars:
+        x_test = [s.replace(character, "") for s in x_test]
 
     x_verbs, x_adj, x_nouns, x_avb = [], [], [], []
 
     all_words = []
 
+    # narrowing down vocab size
     for sentence in x_data:
 
         for word in sentence.split():
             all_words.append(word)
 
+    for sentence in x_test:
+
+        for word in sentence.split():
+            all_words.append(word)
 
     # dictionary creation
     word_idx = {w: i for w, i in enumerate(set(all_words))}
 
     print("\n\nThere are %d unique words in the dataset.\n\n" % len(word_idx.items()))
 
-    print(word_idx.items())
+    # print(word_idx.items())
 
     np.save("dictionary.npy", word_idx)
 
@@ -88,6 +99,10 @@ def organize_data():
             elif token[0][1] == 'VBP' or token[0][1] == 'VB':
                 x_verbs[-1][j] = word_idx.get(word)
 
+    np.save("Adverbs.npy", x_avb)
+    np.save("Nouns.npy", x_nouns)
+    np.save("Adjs.npy", x_adj)
+    np.save("Verbs.npy", x_verbs)
 
 def train_models():
     print("no")
