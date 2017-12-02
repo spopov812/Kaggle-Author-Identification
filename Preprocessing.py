@@ -13,18 +13,42 @@ def organize_data():
     x_data = raw_data["text"]
     y_data = raw_data["author"]
 
+    y_final = []
+
+    # converting author names to a one-hot vector
+    for author in y_data:
+        if author == "":
+            y_final.append([1, 0, 0])
+        elif author == "":
+            y_final.append([0, 1, 0])
+        else:
+            y_final.append([0, 0, 1])
+
     illegal_chars = ["\"", '.', ',', ':', ';', '?']
 
     # getting rid of punctuation
-    for sentence in x_data:
+    for i, sentence in enumerate(x_data):
 
+        # print(type(sentence))
         for char in illegal_chars:
-            sentence = sentence.replace(char, "")
+            x_data[i] = sentence.replace(char, "")
 
     x_verbs, x_adj, x_nouns, x_avb = [], [], [], []
 
+    all_words = []
+
+    for sentence in x_data:
+
+        for word in sentence.split():
+            all_words.append(word)
+
+
     # dictionary creation
-    word_idx = {w: i for w, i in enumerate(x_data)}
+    word_idx = {w: i for w, i in enumerate(set(all_words))}
+
+    print("\n\nThere are %d unique words in the dataset.\n\n" % len(word_idx.items()))
+
+    print(word_idx.items())
 
     np.save("dictionary.npy", word_idx)
 
@@ -32,7 +56,7 @@ def organize_data():
     for i, sentence in enumerate(x_data):
 
         if i % 1000 == 0:
-            print(i)
+            print(i, "/", len(x_data))
 
         # initializing sample with 0s for all words
         x_verbs.append(np.zeros(len(sentence.split())))
