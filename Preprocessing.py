@@ -2,6 +2,7 @@ from Models import *
 import pandas as pd
 import numpy as np
 import nltk
+import sys
 
 def organize_data():
 
@@ -69,16 +70,19 @@ def organize_data():
     # creating separate x data sets for different parts of speech
     for i, sentence in enumerate(x_data):
 
-        if i % 1000 == 0:
-            print(i, "/", len(x_data))
+        sys.stdout.write("\rProcessing %d/%d samples" % (i + 1, len(x_data)))
+        sys.stdout.flush()
 
         # initializing sample with 0s for all words
-        x_verbs.append(np.zeros(75))
-        x_adj.append(np.zeros(75))
-        x_nouns.append(np.zeros(75))
-        x_avb.append(np.zeros(75))
+        x_verbs.append(np.zeros(300))
+        x_adj.append(np.zeros(300))
+        x_nouns.append(np.zeros(300))
+        x_avb.append(np.zeros(300))
 
         for j, word in enumerate(sentence.split()):
+
+            if j == 300:
+                break
 
             token = nltk.pos_tag(nltk.word_tokenize(word))
 
@@ -102,12 +106,12 @@ def organize_data():
             elif token[0][1] == 'VBP' or token[0][1] == 'VB':
                 x_verbs[-1][j] = word_idx.get(word)
 
-
+    # saving arrays of samples
     np.save("Adverbs.npy", x_avb)
     np.save("Nouns.npy", x_nouns)
     np.save("Adjs.npy", x_adj)
     np.save("Verbs.npy", x_verbs)
 
-    np.save("YTrain", y_final)
+    np.save("YTrain.npy", y_final)
 
     return len(word_idx.items())
