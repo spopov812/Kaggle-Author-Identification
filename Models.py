@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import nltk
 from keras.callbacks import ModelCheckpoint
+import sys
 
 
 def pos_model(vocab_size):
@@ -33,7 +34,7 @@ def pos_model(vocab_size):
 
         loss="categorical_crossentropy",
         optimizer="adam",
-        metrics=[]
+        metrics=["categorical_crossentropy"]
 
     )
 
@@ -44,7 +45,7 @@ def final_prediction_model():
 
     model = Sequential()
 
-    model.add(Dense(64, input_shape=(4,), activation="relu"))
+    model.add(Dense(64, input_shape=(12,), activation="relu"))
     model.add(Dropout(.4))
 
     model.add(Dense(64, activation="relu"))
@@ -62,7 +63,7 @@ def final_prediction_model():
 
         loss="categorical_crossentropy",
         optimizer="adam",
-        metrics=[]
+        metrics=["categorical_crossentropy"]
 
     )
 
@@ -83,56 +84,86 @@ def train_models(vocab_size, load=False):
 
     final_prediction = final_prediction_model()
 
-    epochs = 20
+    num_samples = len(x_verbs)
+    epochs = 40
 
     # if user wants to load model weights
     if load:
-        verb_model.load_weights(input("Verb filename.\n"))
-        adj_model.load_weights(input("\nAdjective filename.\n"))
-        noun_model.load_weights(input("\nNoun filename.\n"))
-        avb_model.load_weights(input("\nAdverb filename.\n"))
+        '''
+        verb_model.load_weights("./Verbs/" + input("Verb filename.\n"))
+        adj_model.load_weights("./Adjs/" + input("\nAdjective filename.\n"))
+        noun_model.load_weights("./Nouns/" + input("\nNoun filename.\n"))
+        avb_model.load_weights("./Avbs/" + input("\nAdverb filename.\n"))
+        '''
 
-        epochs = input("How many epochs of training?")
+        # temporary
+        verb_model.load_weights("./Verbs/01-0.85.h5")
+        adj_model.load_weights("./Adjs/01-0.08.h5")
+        noun_model.load_weights("./Nouns/01-0.81.h5")
+        avb_model.load_weights("./Avbs/01-1.04.h5")
+
+        epochs = int(input("How many epochs of training for pos models? "))
 
     # training of pos models
     for i in range(epochs):
         print("\n\n\nBEGINNING EPOCH ", i + 1, "\n\n\n")
 
-        verb_model.fit(x_verbs, y_train, epochs=1, batch_size=64, callbacks=custom_callback("Verbs"))
+        verb_model.fit(x_verbs, y_train, epochs=1, batch_size=128, callbacks=custom_callback("Verbs"))
 
-        adj_model.fit(x_adj, y_train, epochs=1, batch_size=64, callbacks=custom_callback("Adjs"))
+        adj_model.fit(x_adj, y_train, epochs=1, batch_size=128, callbacks=custom_callback("Adjs"))
 
-        noun_model.fit(x_nouns, y_train, epochs=1, batch_size=64, callbacks=custom_callback("Nouns"))
+        noun_model.fit(x_nouns, y_train, epochs=1, batch_size=128, callbacks=custom_callback("Nouns"))
 
-        avb_model.fit(x_avb, y_train, epochs=1, batch_size=64, callbacks=custom_callback("Avbs"))
+        avb_model.fit(x_avb, y_train, epochs=1, batch_size=128, callbacks=custom_callback("Avbs"))
 
     predictions = []
 
+    print("\n\n")
+
     # each pos model generates its predictions for each sample which is then used to train the final prediction
     # model
-    for i in range(len(x_verbs)):
-        one_sample = []
+    for i in range(num_samples):
 
-        one_sample.append(verb_model.predict(x_verbs[i]))
-        one_sample.append(adj_model.predict(x_adj[i]))
-        one_sample.append(noun_model.predict(x_nouns[i]))
-        one_sample.append(avb_model.predict(x_avb[i]))
+        sys.stdout.write("\rProcessing sample %d/%d." % (i + 1, len(x_verbs)))
+        sys.stdout.flush()
+
+        one_sample, temp_sample = [], []
+
+        temp_sample.append(verb_model.predict(x_verbs[i].reshape(1, 300)))
+        temp_sample.append(adj_model.predict(x_adj[i].reshape(1, 300)))
+        temp_sample.append(noun_model.predict(x_nouns[i].reshape(1, 300)))
+        temp_sample.append(avb_model.predict(x_avb[i].reshape(1, 300)))
+
+        for vector in temp_sample:
+            for something in vector:
+                for scalar in something:
+                    one_sample.append(scalar)
 
         predictions.append(one_sample)
 
+    # processing predictions from pos models as input to final prediction model
+    predictions = np.array(predictions)
+    predictions = predictions.reshape(num_samples, 12)
+
+    np.save("POSPreds.npy", predictions)
+
+    print("\n\n\nTRAINING FINAL MODEL\n\n\n")
+
     # training the final prediction model
-    final_prediction(predictions, y_train, epochs=(epochs * 2.5), batch_size=64, callbacks=custom_callback("FinalPred"))
+    final_prediction.fit(predictions, y_train, epochs=50, batch_size=128, callbacks=custom_callback("FinalPred"))
 
 
 # creation of callback to save model training progress
 def custom_callback(filename):
     callbacks = []
 
-    name = filename + "/" + filename + "_{epoch:02d}_{categorical_crossentropy:.2f}.h5"
+    name = "./" + filename + "/" + "{epoch:02d}-{categorical_crossentropy:.2f}.h5"
 
     callbacks.append(ModelCheckpoint(name,
                                      monitor='categorical_crossentropy', verbose=0,
                                      save_best_only=True, save_weights_only=False, mode='auto', period=1))
+
+    return callbacks
 
 
 def predict():
@@ -141,12 +172,16 @@ def predict():
     x_data_words = raw_test["text"]
 
     x_data_words = x_data_words.tolist()
+    num_samples = len(x_data_words)
 
     word_idx = np.load("dictionary.npy")
 
     x_verbs, x_adj, x_nouns, x_avb = [], [], [], []
 
-    for sentence in x_data_words:
+    for j, sentence in enumerate(x_data_words):
+
+        sys.stdout.write("\rProcessing sample %d/%d" % (j + 1, len(x_data_words)))
+        sys.stdout.flush()
 
         # initializing sample with 0s for all words
         x_verbs.append(np.zeros(75))
@@ -189,16 +224,28 @@ def predict():
 
     predictions = []
 
-    # each pos model generates its predictions for each sample which is then used in final prediction model
-    for i in range(len(x_verbs)):
-        one_sample = []
+    for i in range(num_samples):
 
-        one_sample.append(verb_model.predict(x_verbs[i]))
-        one_sample.append(adj_model.predict(x_adj[i]))
-        one_sample.append(noun_model.predict(x_nouns[i]))
-        one_sample.append(avb_model.predict(x_avb[i]))
+        sys.stdout.write("\rProcessing sample %d/%d." % (i + 1, len(x_verbs)))
+        sys.stdout.flush()
+
+        one_sample, temp_sample = [], []
+
+        temp_sample.append(verb_model.predict(x_verbs[i].reshape(1, 300)))
+        temp_sample.append(adj_model.predict(x_adj[i].reshape(1, 300)))
+        temp_sample.append(noun_model.predict(x_nouns[i].reshape(1, 300)))
+        temp_sample.append(avb_model.predict(x_avb[i].reshape(1, 300)))
+
+        for vector in temp_sample:
+            for something in vector:
+                for scalar in something:
+                    one_sample.append(scalar)
 
         predictions.append(one_sample)
+
+    # processing predictions from pos models as input to final prediction model
+    predictions = np.array(predictions)
+    predictions = predictions.reshape(num_samples, 12)
 
     # final prediction
     author_predictions = final_prediction.predict(predictions)
